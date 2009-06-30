@@ -1,3 +1,4 @@
 ; $Id:
 name = Email Confirm
-description = Requires a user to verify changes to their email address
+description = "Requires a user to verify changes to their email address"
+core = 6.x

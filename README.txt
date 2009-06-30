@@ -27,7 +27,7 @@ email address, BCC email address if desired and the
 body of the emails sent to both the user's original
 email address and their new email address.
 
-This module was developed in part for the Beijinger
-website http://www.thebeijinger.com (soon to be 
-rolled out as a Drupal site).
-
+If an email address is changed by a user that has
+the 'administer users' permission, the email confirmation
+email is not sent out and the change to the user's
+information is effective immediately.
