@@ -2,7 +2,7 @@
 // $Id$
 
 /**
- * Implementation of hook_help().
+ * Implement hook_help().
  */
 function email_confirm_help($path, $arg) {
   switch ($path) {
@@ -16,7 +16,7 @@ function email_confirm_help($path, $arg) {
 }
 
 /**
- * Implementation of hook_menu().
+ * Implement hook_menu().
  */
 function email_confirm_menu() {
   $items = array();
@@ -41,7 +41,7 @@ function email_confirm_menu() {
 }
 
 /**
- * Implementation of hook_settings().
+ * Implement hook_settings().
  */
 function email_confirm_admin_settings() {
   $form = array();
@@ -127,19 +127,14 @@ function email_confirm_admin_settings_validate($form, $form_state) {
 }
 
 /**
- * Implementation of hook_user().
+ * Implement hook_user_submit().
  */
-function email_confirm_user($op, &$edit, &$account) {
+function email_confirm_user_submit(&$edit, &$account) {
   global $user;
-
-  switch ($op) {
-    case 'submit':
-      if (!empty($edit['mail']) && $user->mail != $edit['mail'] && !user_access('administer users')) {
-        email_confirm_build_mail($edit);
-        module_invoke_all('email_confirm', 'email change', $account->uid, $user->mail, $edit['mail']);
-        unset($edit['mail']);
-      }
-      break;
+  if (!empty($edit['mail']) && $user->mail != $edit['mail'] && !user_access('administer users')) {
+    email_confirm_build_mail($edit);
+    module_invoke_all('email_confirm', 'email change', $account->uid, $user->mail, $edit['mail']);
+    unset($edit['mail']);
   }
 }
 
@@ -150,44 +145,44 @@ function email_confirm_user($op, &$edit, &$account) {
 function email_confirm_user_change_mail($uid, $timestamp, $new_mail, $hash, $action = '') {
   global $user;
 
-  $account = user_load(array('uid' => $uid, 'status' => 1));
+  $account = user_load($uid);
   $new_mail = str_replace(' ', '+', $new_mail);
   
   // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
   $timeout = 86400;
-  $current = time();
+  $current = REQUEST_TIME;
 
   // Some redundant checks for extra security ?
   if ($timestamp < $current && $account) {
     if (($current - $timestamp) > $timeout) {
       drupal_set_message(t('You have tried to use a one-time e-mail change link for %account that has expired--your change of e-mail request was not completed. Please visit your account edit page if you wish to attempt the change again.', array('%account' => $account->name)), 'error');
       if ($account->uid == $user->uid) {
-        drupal_goto('user/'. $account->uid .'/edit');
+        drupal_goto('user/' . $account->uid . '/edit');
       }
       else {
         drupal_goto();
       }
     }
-    else if ($user->uid && $user->uid != $account->uid) {
+    elseif ($user->uid && $user->uid != $account->uid) {
       drupal_set_message(t('You are currently logged in as %user, and are attempting to confirm an e-mail change for %account, which is not allowed. Please log in as %account and initiate a new change of e-mail request.', array('%user' => $user->name, '%account' => $account->name)), 'error');
       drupal_goto();
     }
-    else if ($hash != email_confirm_user_email_rehash($account->pass, $new_mail)) {
+    elseif ($hash != email_confirm_user_email_rehash($account->pass, $new_mail)) {
       drupal_set_message(t('There was a problem verifying your change of e-mail request--please visit your account edit page and attempt the change again'), 'error');
       if ($user->uid) {
-        drupal_goto('user/'. $user->uid .'/edit');
+        drupal_goto('user/' . $user->uid . '/edit');
       }
       else {
-        drupal_goto('user/login', 'destination=user/'. $user->uid .'/edit');
+        drupal_goto('user/login', 'destination=user/' . $user->uid . '/edit');
       }
     }
-    else if ($timestamp > $account->login && $timestamp < $current) {
+    elseif ($timestamp > $account->login && $timestamp < $current) {
       watchdog('user', 'User %name used one-time e-mail change link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
       user_save($account, array('mail' => $new_mail));
       module_invoke_all('email_confirm', 'email confirmation', $account->uid, $account->mail, $new_mail);
       drupal_set_message(t('Your e-mail address is now %mail.', array('%mail' => $new_mail)));
       if ($user->uid) {
-        drupal_goto('user/'. $user->uid);
+        drupal_goto('user/' . $user->uid);
       }
       else {
         drupal_goto('user');
@@ -196,10 +191,10 @@ function email_confirm_user_change_mail($uid, $timestamp, $new_mail, $hash, $act
     else {
       drupal_set_message(t('You have tried to use a one-time e-mail change link which has either been used or has expired. Please request a new one.'), 'error');
       if ($user->uid) {
-        drupal_goto('user/'. $user->uid .'/edit');
+        drupal_goto('user/' . $user->uid . '/edit');
       }
       else {
-        drupal_goto('user/login', 'destination=user/'. $user->uid .'/edit');
+        drupal_goto('user/login', 'destination=user/' . $user->uid . '/edit');
       }
     }
   }
@@ -211,7 +206,7 @@ function email_confirm_user_change_mail($uid, $timestamp, $new_mail, $hash, $act
 }
  
 /**
- * Implementation of hook_mail().
+ * Implement hook_mail().
  */
 function email_confirm_mail($key, &$message, $params) {
   $language = $message['language'];
@@ -225,8 +220,8 @@ function email_confirm_mail($key, &$message, $params) {
 
   $message['subject'] .= t($context['subject'], $variables, $language->language);
   $message['body'][] = t($context['body'], $variables, $language->language);
-  if ($params['headers']['bcc']) {
-    $message['headers']['bcc'] = $params['headers']['bcc'];
+  if (isset($params['headers']['Bcc'])) {
+    $message['headers']['Bcc'] = $params['headers']['Bcc'];
   }
 }
 
@@ -242,7 +237,7 @@ function email_confirm_build_mail($edit) {
   $timestamp = time();
   $pass = $edit['pass'] ? md5($edit['pass']) : $user->pass;
   $hash = email_confirm_user_email_rehash($pass, $edit['mail']);
-  $params['context']['url'] = url('user/change-mail/'. $user->uid .'/'. $timestamp .'/'. $edit['mail'] .'/'. $hash, array('absolute' => TRUE));
+  $params['context']['url'] = url('user/change-mail/' . $user->uid . '/' . $timestamp . '/' . $edit['mail'] . '/' . $hash, array('absolute' => TRUE));
 
   if (module_exists('smtp') && variable_get('smtp_from', '') != '') {
     $default_from = $smtp_from;
@@ -271,7 +266,7 @@ at !site will not be updated.
 
   $params['headers'] = array();
   if ($bcc) {
-    $params['headers']['bcc'] = $bcc;
+    $params['headers']['Bcc'] = $bcc;
   }
   
   if ($message['result'] = drupal_mail('email_confirm', 'user_change_mail', $edit['mail'], user_preferred_language($user), $params, $from)) {
