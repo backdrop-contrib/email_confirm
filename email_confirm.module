@@ -136,6 +136,7 @@ function email_confirm_user($op, &$edit, &$account) {
     case 'submit':
       if (!empty($edit['mail']) && $user->mail != $edit['mail'] && !user_access('administer users')) {
         email_confirm_build_mail($edit);
+        module_invoke_all('email_confirm', 'email change', $account->uid, $user->mail, $edit['mail']);
         unset($edit['mail']);
       }
       break;
@@ -183,6 +184,7 @@ function email_confirm_user_change_mail($uid, $timestamp, $new_mail, $hash, $act
     else if ($timestamp > $account->login && $timestamp < $current) {
       watchdog('user', 'User %name used one-time e-mail change link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
       user_save($account, array('mail' => $new_mail));
+      module_invoke_all('email_confirm', 'email confirmation', $account->uid, $account->mail, $new_mail);
       drupal_set_message(t('Your e-mail address is now %mail.', array('%mail' => $new_mail)));
       if ($user->uid) {
         drupal_goto('user/'. $user->uid);
