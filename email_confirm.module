@@ -218,8 +218,8 @@ function email_confirm_mail($key, &$message, $params) {
     '!email_url' => $context['url'],
   );
 
-  $message['subject'] .= t($context['subject'], $variables, $language->language);
-  $message['body'][] = t($context['body'], $variables, $language->language);
+  $message['subject'] = strtr($context['subject'], $variables);
+  $message['body'][] = strtr($context['body'], $variables);
   if (isset($params['headers']['Bcc'])) {
     $message['headers']['Bcc'] = $params['headers']['Bcc'];
   }
