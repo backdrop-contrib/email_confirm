@@ -2,6 +2,11 @@
 // $Id$
 
 /**
+ * @file
+ * Install, update and uninstall functions for the Email Chhange Confirmation module.
+ */
+
+/**
  * Implement hook_uninstall().
  */
 function email_confirm_uninstall() {

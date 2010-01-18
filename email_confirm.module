@@ -10,8 +10,8 @@ function email_confirm_help($path, $arg) {
       return t('Configuration of confirmation email sent to users who attempt to change their email address.');
     case 'admin/help#email_confirm':
       return t('<p>The Email Change Confirmation module addresses missing functionality in the core distribution of Drupal. With this module enabled, a user who attempts to change the email address associated with their account must confirm that change by clicking a confirmation link that is sent to the new email address. The confirmation link must be clicked with a certain time period after which the pending update to their email address will expire and they will have to attempt to update their account again. This module was based on code from <a href="!url">this issue</a></p>', array('!url' => 'http://drupal.org/node/85494'));
-    case 'admin/settings/email_confirm':
-      return t('When the Email Change Confirmation module is enabled, users who attempt to update their email address will be required to confirm their changes by clicking a confirmation link in an email sent to the new email address. The settings below determine the subject and body of the confirmation email sent to the user. A copy is sent to both the user\'s original email address and the new address.');
+    case 'admin/config/people/email_confirm':
+      return t("When the Email Change Confirmation module is enabled, users who attempt to update their email address will be required to confirm their changes by clicking a confirmation link in an email sent to the new email address. The settings below determine the subject and body of the confirmation email sent to the user. A copy is sent to both the user's original email address and the new address.");
   }
 }
 
@@ -20,14 +20,14 @@ function email_confirm_help($path, $arg) {
  */
 function email_confirm_menu() {
   $items = array();
-  
+
   $items['user/change-mail'] = array(
     'title' => 'Change e-mail',
-    'page callback' => 'email_confirm_user_change_mail', 
-    'access callback' => TRUE, 
+    'page callback' => 'email_confirm_user_change_mail',
+    'access callback' => TRUE,
     'type' => MENU_CALLBACK
   );
-  $items['admin/settings/email_confirm'] = array(
+  $items['admin/config/people/email_confirm'] = array(
     'title' => 'Email change confirmation settings',
     'description' => 'Configuration of confirmation email sent to users who attempt to change their email address.',
     'page callback' => 'drupal_get_form',
@@ -36,7 +36,7 @@ function email_confirm_menu() {
     'access arguments' => array('administer site configuration'),
     'type' => MENU_NORMAL_ITEM,
   );
-  
+
   return $items;
 }
 
@@ -45,7 +45,7 @@ function email_confirm_menu() {
  */
 function email_confirm_admin_settings() {
   $form = array();
-  
+
   $form['email_confirm_confirmation_email_subject'] = array(
     '#type' => 'textfield',
     '#title' => t('Email address change request email subject'),
@@ -76,7 +76,7 @@ function email_confirm_admin_settings() {
     '#type' => 'textarea',
     '#title' => t('Email address change request email body'),
     '#description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's new email address. The placeholders !username and !site will be replaced by the username and the site name."),
-    '#default_value' => variable_get('email_confirm_confirmation_email_body', 
+    '#default_value' => variable_get('email_confirm_confirmation_email_body',
 t('Hello !username,
 
 A request to change your email address has been made at !site.
@@ -98,7 +98,7 @@ at !site will not be updated.
     '#type' => 'textarea',
     '#title' => t('Email address change request email body (Original)'),
     '#description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's original email address. The placeholders !username and !site will be replaced by the username and the site name."),
-    '#default_value' => variable_get('email_confirm_confirmation_original_email_body', 
+    '#default_value' => variable_get('email_confirm_confirmation_original_email_body',
 t('Hello !username,
 
 A request to change your email address has been made at !site.
@@ -127,13 +127,12 @@ function email_confirm_admin_settings_validate($form, $form_state) {
 }
 
 /**
- * Implement hook_user_submit().
+ * Implement hook_user_presave().
  */
-function email_confirm_user_submit(&$edit, &$account) {
-  global $user;
-  if (!empty($edit['mail']) && $user->mail != $edit['mail'] && !user_access('administer users')) {
+function email_confirm_user_presave(&$edit, $account, $category) {
+  if (!empty($edit['mail']) && $account->mail != $edit['mail'] && !user_access('administer users')) {
     email_confirm_build_mail($edit);
-    module_invoke_all('email_confirm', 'email change', $account->uid, $user->mail, $edit['mail']);
+    module_invoke_all('email_confirm', 'email change', $account->uid, $account->mail, $edit['mail']);
     unset($edit['mail']);
   }
 }
@@ -142,12 +141,18 @@ function email_confirm_user_submit(&$edit, &$account) {
  * Menu callback; process one time email change confirm
  * and redirects to the user page on success.
  */
-function email_confirm_user_change_mail($uid, $timestamp, $new_mail, $hash, $action = '') {
+function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mail = NULL, $hash = NULL) {
   global $user;
+
+  // Check if all required parameters are present.
+  if (!isset($uid) || !is_numeric($uid) || !isset($timestamp) || !is_numeric($timestamp) || !isset($new_mail) || !isset($hash)) {
+    drupal_access_denied();
+    return;
+  }
 
   $account = user_load($uid);
   $new_mail = str_replace(' ', '+', $new_mail);
-  
+
   // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
   $timeout = 86400;
   $current = REQUEST_TIME;
@@ -178,7 +183,7 @@ function email_confirm_user_change_mail($uid, $timestamp, $new_mail, $hash, $act
     }
     elseif ($timestamp > $account->login && $timestamp < $current) {
       watchdog('user', 'User %name used one-time e-mail change link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
-      user_save($account, array('mail' => $new_mail));
+      user_save($account, array('mail' => $new_mail, 'login' => REQUEST_TIME));
       module_invoke_all('email_confirm', 'email confirmation', $account->uid, $account->mail, $new_mail);
       drupal_set_message(t('Your e-mail address is now %mail.', array('%mail' => $new_mail)));
       if ($user->uid) {
@@ -204,7 +209,7 @@ function email_confirm_user_change_mail($uid, $timestamp, $new_mail, $hash, $act
     drupal_access_denied();
   }
 }
- 
+
 /**
  * Implement hook_mail().
  */
@@ -233,8 +238,8 @@ function email_confirm_build_mail($edit) {
   global $user;
   $params = array();
   $params['account'] = $user;
-  
-  $timestamp = time();
+
+  $timestamp = REQUEST_TIME;
   $pass = $edit['pass'] ? md5($edit['pass']) : $user->pass;
   $hash = email_confirm_user_email_rehash($pass, $edit['mail']);
   $params['context']['url'] = url('user/change-mail/' . $user->uid . '/' . $timestamp . '/' . $edit['mail'] . '/' . $hash, array('absolute' => TRUE));
@@ -250,7 +255,7 @@ function email_confirm_build_mail($edit) {
   $bcc = variable_get('email_confirm_confirmation_email_bcc', '');
 
   $params['context']['subject'] = variable_get('email_confirm_confirmation_email_subject', t('Email address change request for !username at !site'));
-  $params['context']['body'] = variable_get('email_confirm_confirmation_email_body', 
+  $params['context']['body'] = variable_get('email_confirm_confirmation_email_body',
 t('Hello !username,
 
 A request to change your email address has been made at !site.
@@ -268,9 +273,9 @@ at !site will not be updated.
   if ($bcc) {
     $params['headers']['Bcc'] = $bcc;
   }
-  
+
   if ($message['result'] = drupal_mail('email_confirm', 'user_change_mail', $edit['mail'], user_preferred_language($user), $params, $from)) {
-    $params['context']['body'] = variable_get('email_confirm_confirmation_original_email_body', 
+    $params['context']['body'] = variable_get('email_confirm_confirmation_original_email_body',
 t('Hello !username,
 
 A request to change your email address has been made at !site.

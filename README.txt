@@ -36,7 +36,7 @@ Installation and Configuration
 2) To install, enable the Email Change Confirmation module
    on the Drupal modules page /admin/build/modules
 
-3) Go to /admin/settings/email_confirm to configure the 
+3) Go to /admin/config/people/email_confirm to configure the 
    settings for the emails sent out to users when they
    change their email address.
 
