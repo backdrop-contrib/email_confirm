@@ -6,7 +6,7 @@
  */
 
 /**
- * Implement hook_uninstall().
+ * Implements hook_uninstall().
  */
 function email_confirm_uninstall() {
   variable_del('email_confirm_confirmation_email_subject');

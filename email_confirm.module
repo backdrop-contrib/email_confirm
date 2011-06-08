@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Implement hook_help().
+ * Implements hook_help().
  */
 function email_confirm_help($path, $arg) {
   switch ($path) {
@@ -15,7 +15,7 @@ function email_confirm_help($path, $arg) {
 }
 
 /**
- * Implement hook_menu().
+ * Implements hook_menu().
  */
 function email_confirm_menu() {
   $items = array();
@@ -40,7 +40,7 @@ function email_confirm_menu() {
 }
 
 /**
- * Implement hook_settings().
+ * Implements hook_settings().
  */
 function email_confirm_admin_settings() {
   $form = array();
@@ -126,7 +126,7 @@ function email_confirm_admin_settings_validate($form, $form_state) {
 }
 
 /**
- * Implement hook_user_presave().
+ * Implements hook_user_presave().
  */
 function email_confirm_user_presave(&$edit, $account, $category) {
   if (!empty($edit['mail']) && $account->mail != $edit['mail'] && !user_access('administer users')) {
@@ -210,7 +210,7 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
 }
 
 /**
- * Implement hook_mail().
+ * Implements hook_mail().
  */
 function email_confirm_mail($key, &$message, $params) {
   $language = $message['language'];
