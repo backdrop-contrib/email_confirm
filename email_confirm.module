@@ -238,10 +238,7 @@ function email_confirm_build_mail($edit) {
   $params = array();
   $params['account'] = $user;
 
-  $timestamp = REQUEST_TIME;
-  $pass = $edit['pass'] ? md5($edit['pass']) : $user->pass;
-  $hash = email_confirm_user_email_rehash($pass, $edit['mail']);
-  $params['context']['url'] = url('user/change-mail/' . $user->uid . '/' . $timestamp . '/' . $edit['mail'] . '/' . $hash, array('absolute' => TRUE));
+  $params['context']['url'] = email_change_confirmation_email_url($edit);
 
   if (module_exists('smtp') && variable_get('smtp_from', '') != '') {
     $default_from = $smtp_from;
@@ -287,6 +284,21 @@ within 24 hours.
   }
 }
 
+/**
+ * Generate a URL to confirm an email address change request.
+ */
+function email_confirm_confirmation_email_url($edit) {
+  global $user;
+  $timestamp = REQUEST_TIME;
+
+  $pass = $edit['pass'] ? md5($edit['pass']) : $user->pass;
+  $hash = email_confirm_user_email_rehash($pass, $edit['mail']);
+  return url('user/change-mail/' . $user->uid . '/' . $timestamp . '/' . $edit['mail'] . '/' . $hash, array('absolute' => TRUE))
+}
+
+/**
+ * Generate an MD5 hash of user's passwords and pending changed email address.
+ */
 function email_confirm_user_email_rehash($pass, $mail) {
   return md5($pass . $mail . drupal_get_private_key());
 }
