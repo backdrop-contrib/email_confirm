@@ -48,8 +48,8 @@ function email_confirm_admin_settings() {
   $form['email_confirm_confirmation_email_subject'] = array(
     '#type' => 'textfield',
     '#title' => t('Email address change request email subject'),
-    '#description' => t('The above text will be the subject for the email sent to a user that is attempting to update their email address. The placeholders !username and !site will be replaced by the username and the site name.'),
-    '#default_value' => variable_get('email_confirm_confirmation_email_subject', t('Email address change request for !username at !site')),
+    '#description' => t('The above text will be the subject for the email sent to a user that is attempting to update their email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name.'),
+    '#default_value' => email_confirm_mail_text('confirmation_email_subject', NULL, array(), FALSE),
     '#size' => 60,
     '#maxlength' => 256,
     '#required' => TRUE,
@@ -58,36 +58,24 @@ function email_confirm_admin_settings() {
   $form['email_confirm_confirmation_email_author'] = array(
     '#type' => 'textfield',
     '#title' => t('Email address change request email author'),
+    '#description' => t('The above address will be the \'From\' email address for the confirmation email for an email address change request. If no address is supplied the default site email address will be used.'),
     '#default_value' => variable_get('email_confirm_confirmation_email_author', ''),
     '#size' => 60,
-    '#description' => t('The above address will be the \'From\' email address for the confirmation email for an email address change request. If no address is supplied the default site email address will be used.'),
   );
 
   $form['email_confirm_confirmation_email_bcc'] = array(
     '#type' => 'textfield',
     '#title' => t('Email address change request email BCC email address'),
+    '#description' => t('The above address will receive a BCC email copy of the confirmation email for an email address change request.'),
     '#default_value' => variable_get('email_confirm_confirmation_email_bcc', ''),
     '#size' => 60,
-    '#description' => t('The above address will receive a BCC email copy of the confirmation email for an email address change request.'),
   );
 
   $form['email_confirm_confirmation_email_body'] = array(
     '#type' => 'textarea',
     '#title' => t('Email address change request email body'),
-    '#description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's new email address. The placeholders !username and !site will be replaced by the username and the site name."),
-    '#default_value' => variable_get('email_confirm_confirmation_email_body',
-t('Hello !username,
-
-A request to change your email address has been made at !site.
-You need to verify the change by clicking on the link below or by
-copying and pasting it in your browser:
-
-!email_url
-
-This is a one-time URL - it can be used only once. It expires after
-24 hours. If you do not click the link to confirm, your email address
-at !site will not be updated.
-')),
+    '#description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's new email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name."),
+    '#default_value' => email_confirm_mail_text('confirmation_email_body', NULL, array(), FALSE),
     '#cols' => 80,
     '#rows' => 10,
     '#required' => TRUE,
@@ -96,15 +84,8 @@ at !site will not be updated.
   $form['email_confirm_confirmation_original_email_body'] = array(
     '#type' => 'textarea',
     '#title' => t('Email address change request email body (Original)'),
-    '#description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's original email address. The placeholders !username and !site will be replaced by the username and the site name."),
-    '#default_value' => variable_get('email_confirm_confirmation_original_email_body',
-t('Hello !username,
-
-A request to change your email address has been made at !site.
-In order to confirm the update of your email address you will
-need to follow the instructions sent to your new email address
-within 24 hours.
-')),
+    '#description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's original email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name."),
+    '#default_value' => email_confirm_mail_text('confirmation_original_email_body', NULL, array(), FALSE),
     '#cols' => 80,
     '#rows' => 10,
     '#required' => TRUE,
@@ -282,6 +263,60 @@ within 24 hours.
     drupal_mail('email_confirm', 'user_change_mail_original', $user->mail, user_preferred_language($user), $params, $from);
     drupal_set_message(t('A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address.'));
   }
+}
+
+/*
+ * Returns a mail string for a variable name.
+ *
+ * Used by email_confirm_mail(), email_confirm_build_mail() and the module settings form to retrieve strings.
+ */
+function email_confirm_mail_text($key, $language = NULL, $variables = array(), $replace = TRUE) {
+  $langcode = isset($language) ? $language->language : NULL;
+
+  if ($admin_setting = variable_get('email_confirm_' . $key, FALSE)) {
+    // An admin setting overrides the default string.
+    $text = $admin_setting;
+  }
+  else {
+    // No override, return default string.
+    switch ($key) {
+      case 'confirmation_email_subject':
+        $text = t('Email address change request for [user:name] at [site:name]', array(), array('langcode' => $langcode));
+        break;
+
+      case 'confirmation_email_body':
+        $text = t("Hello [user:name],
+
+A request to change your email address has been made at [site:name].
+You need to verify the change by clicking on the link below or by
+copying and pasting it in your browser:
+
+[email_confirm:email_url]
+
+This is a one-time URL - it can be used only once. It expires after
+24 hours. If you do not click the link to confirm, your email address
+at [site:name] will not be updated.
+", array(), array('langcode' => $langcode));
+        break;
+
+      case 'confirmation_original_email_body':
+        $text = t("Hello [user:name],
+
+A request to change your email address has been made at [site:name].
+In order to confirm the update of your email address you will
+need to follow the instructions sent to your new email address
+within 24 hours.
+", array(), array('langcode' => $langcode));
+        break;
+  }
+
+  if ($replace) {
+    // We do not sanitize the token replacement, since the output of this
+    // replacement is intended for an e-mail message, not a web browser.
+    return token_replace($text, $variables, array('language' => $language, 'callback' => 'user_mail_tokens', 'sanitize' => FALSE));
+  }
+
+  return $text;
 }
 
 /**
