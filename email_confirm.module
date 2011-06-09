@@ -110,10 +110,11 @@ function email_confirm_admin_settings_validate($form, $form_state) {
  * Implements hook_user_presave().
  */
 function email_confirm_user_presave(&$edit, $account, $category) {
-  if (!empty($edit['mail']) && $account->mail != $edit['mail'] && !user_access('administer users')) {
+  if (!empty($edit['mail']) && $account->mail != $edit['mail'] && !user_access('administer users') && (!isset($edit['email_confirmed']) || $edit['email_confirmed'] === FALSE)) {
     email_confirm_build_mail($edit);
     module_invoke_all('email_confirm', 'email change', $account->uid, $account->mail, $edit['mail']);
     unset($edit['mail']);
+    unset($edit['email_confirmed']);
   }
 }
 
@@ -163,7 +164,7 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
     }
     elseif ($timestamp > $account->login && $timestamp < $current) {
       watchdog('user', 'User %name used one-time e-mail change link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
-      user_save($account, array('mail' => $new_mail, 'login' => REQUEST_TIME));
+      user_save($account, array('mail' => $new_mail, 'login' => REQUEST_TIME, 'email_confirmed' => TRUE));
       module_invoke_all('email_confirm', 'email confirmation', $account->uid, $account->mail, $new_mail);
       drupal_set_message(t('Your e-mail address is now %mail.', array('%mail' => $new_mail)));
       if ($user->uid) {
