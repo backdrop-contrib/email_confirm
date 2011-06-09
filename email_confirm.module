@@ -198,13 +198,17 @@ function email_confirm_mail($key, &$message, $params) {
   $account = $params['account'];
   $context = $params['context'];
 
-  $variables = user_mail_tokens($account, $language);
-  $variables += array(
-    '!email_url' => $context['url'],
+  $email_confirm = new stdClass();
+  $email_confirm->url = $context['url'];
+
+  $variables = array(
+    'email_confirm' => $email_confirm,
+    'user' => $account
   );
 
-  $message['subject'] = strtr($context['subject'], $variables);
-  $message['body'][] = strtr($context['body'], $variables);
+  $message['subject'] = email_confirm_mail_text('confirmation_email_subject', $language, $variables);
+  $message['body'][] = email_confirm_mail_text($key . '_body', $language, $variables);
+
   if (isset($params['headers']['Bcc'])) {
     $message['headers']['Bcc'] = $params['headers']['Bcc'];
   }
@@ -219,7 +223,7 @@ function email_confirm_build_mail($edit) {
   $params = array();
   $params['account'] = $user;
 
-  $params['context']['url'] = email_change_confirmation_email_url($edit);
+  $params['context']['url'] = email_confirm_confirmation_email_url($edit);
 
   if (module_exists('smtp') && variable_get('smtp_from', '') != '') {
     $default_from = $smtp_from;
@@ -231,36 +235,13 @@ function email_confirm_build_mail($edit) {
   $from = variable_get('email_confirm_confirmation_email_author', $default_from);
   $bcc = variable_get('email_confirm_confirmation_email_bcc', '');
 
-  $params['context']['subject'] = variable_get('email_confirm_confirmation_email_subject', t('Email address change request for !username at !site'));
-  $params['context']['body'] = variable_get('email_confirm_confirmation_email_body',
-t('Hello !username,
-
-A request to change your email address has been made at !site.
-You need to verify the change by clicking on the link below or by
-copying and pasting it in your browser:
-
-!email_url
-
-This is a one-time URL - it can be used only once. It expires after
-24 hours. If you do not click the link to confirm, your email address
-at !site will not be updated.
-'));
-
   $params['headers'] = array();
   if ($bcc) {
     $params['headers']['Bcc'] = $bcc;
   }
 
-  if ($message['result'] = drupal_mail('email_confirm', 'user_change_mail', $edit['mail'], user_preferred_language($user), $params, $from)) {
-    $params['context']['body'] = variable_get('email_confirm_confirmation_original_email_body',
-t('Hello !username,
-
-A request to change your email address has been made at !site.
-In order to confirm the update of your email address you will
-need to follow the instructions sent to your new email address
-within 24 hours.
-'));
-    drupal_mail('email_confirm', 'user_change_mail_original', $user->mail, user_preferred_language($user), $params, $from);
+  if ($message['result'] = drupal_mail('email_confirm', 'confirmation_email', $edit['mail'], user_preferred_language($user), $params, $from)) {
+    drupal_mail('email_confirm', 'confirmation_original_email', $user->mail, user_preferred_language($user), $params, $from);
     drupal_set_message(t('A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address.'));
   }
 }
@@ -308,27 +289,40 @@ need to follow the instructions sent to your new email address
 within 24 hours.
 ", array(), array('langcode' => $langcode));
         break;
+    }
   }
 
   if ($replace) {
     // We do not sanitize the token replacement, since the output of this
     // replacement is intended for an e-mail message, not a web browser.
-    return token_replace($text, $variables, array('language' => $language, 'callback' => 'user_mail_tokens', 'sanitize' => FALSE));
+    return token_replace($text, $variables, array('language' => $language, 'callback' => 'email_confirm_mail_tokens', 'sanitize' => FALSE));
   }
 
   return $text;
 }
 
 /**
+ * Generate the tokens for the confirmation emails
+ */
+function email_confirm_mail_tokens(&$replacements, $data, $options) {
+  // Add any core mail tokens
+  user_mail_tokens($replacements, $data, $options);
+
+  if (isset($data['email_confirm'])) {
+    $replacements['[email_confirm:email_url]'] = $data['email_confirm']->url;
+  }
+}
+    
+/**
  * Generate a URL to confirm an email address change request.
  */
 function email_confirm_confirmation_email_url($edit) {
   global $user;
   $timestamp = REQUEST_TIME;
-
-  $pass = $edit['pass'] ? md5($edit['pass']) : $user->pass;
+  $pass = isset($edit['pass']) ? md5($edit['pass']) : $user->pass;
   $hash = email_confirm_user_email_rehash($pass, $edit['mail']);
-  return url('user/change-mail/' . $user->uid . '/' . $timestamp . '/' . $edit['mail'] . '/' . $hash, array('absolute' => TRUE))
+
+  return url('user/change-mail/' . $user->uid . '/' . $timestamp . '/' . $edit['mail'] . '/' . $hash, array('absolute' => TRUE));
 }
 
 /**
