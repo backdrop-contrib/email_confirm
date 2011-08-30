@@ -110,7 +110,7 @@ function email_confirm_admin_settings_validate($form, $form_state) {
  * Implements hook_user_presave().
  */
 function email_confirm_user_presave(&$edit, $account, $category) {
-  if (!empty($edit['mail']) && $account->mail != $edit['mail'] && !user_access('administer users') && (!isset($edit['email_confirmed']) || $edit['email_confirmed'] === FALSE)) {
+  if (!empty($edit['mail']) && (isset($account->mail) && $account->mail != $edit['mail']) && !user_access('administer users') && (!isset($edit['email_confirmed']) || $edit['email_confirmed'] === FALSE)) {
     email_confirm_build_mail($edit);
     module_invoke_all('email_confirm', 'email change', $account->uid, $account->mail, $edit['mail']);
     unset($edit['mail']);
