@@ -110,15 +110,36 @@ function email_confirm_admin_settings_validate($form, $form_state) {
  * Implements hook_user_presave().
  */
 function email_confirm_user_presave(&$edit, $account, $category) {
-  if (!empty($edit['mail']) && $account->mail != $edit['mail'] && !user_access('administer users') && (!isset($edit['email_confirmed']) || $edit['email_confirmed'] === FALSE)) {
+  if (!empty($edit['mail']) && (isset($account->mail) && $account->mail != $edit['mail']) && !user_access('administer users') && (!isset($edit['email_confirmed']) || $edit['email_confirmed'] === FALSE)) {
     // Set a temporary session variable to indicate that the email was changed. Is used in hook_exit
     // to clear out a Drupal message set by the user module after user_save() is called.
     $_SESSION['email_changed'] = TRUE;
     email_confirm_build_mail($edit);
+    $edit['data']['email_confirm']['pending_email'] = $edit['mail'];
+    $edit['data']['email_confirm']['expiration_time'] = (REQUEST_TIME + 86400);
     module_invoke_all('email_confirm', 'email change', $account->uid, $account->mail, $edit['mail']);
     unset($edit['mail']);
     unset($edit['email_confirmed']);
   }
+
+  if ((isset($edit['email_confirmed']) && $edit['email_confirmed'] === TRUE) || (!empty($edit['data']) && isset($edit['data']['email_confirm']) && $edit['data']['email_confirm']['expiration_time'] < REQUEST_TIME)) {
+    unset($edit['data']['email_confirm']);
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function email_confirm_form_user_profile_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+
+  if ($user->uid && isset($user->data['email_confirm'])) {
+    if (isset($user->data['email_confirm']['pending_email']) && $user->data['email_confirm']['expiration_time'] > REQUEST_TIME) {
+      $pending_email_notice = t('You currently have a pending change of your email address to <strong>%email</strong>', array('%email' => $user->data['email_confirm']['pending_email'])) .'<br />';
+      $form['account']['mail']['#description'] = $pending_email_notice . $form['account']['mail']['#description'];
+    }
+  }
+
 }
 
 /**
@@ -162,7 +183,7 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
         drupal_goto('user/' . $user->uid . '/edit');
       }
       else {
-        drupal_goto('user/login', 'destination=user/' . $user->uid . '/edit');
+        drupal_goto('user/login', array('query' => array('destination' => 'user/' . $user->uid . '/edit')));
       }
     }
     elseif ($timestamp > $account->login && $timestamp < $current) {
@@ -183,7 +204,7 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
         drupal_goto('user/' . $user->uid . '/edit');
       }
       else {
-        drupal_goto('user/login', 'destination=user/' . $user->uid . '/edit');
+        drupal_goto('user/login', array('query' => array('destination' => 'user/' . $user->uid . '/edit')));
       }
     }
   }
