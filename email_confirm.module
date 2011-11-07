@@ -358,7 +358,7 @@ function email_confirm_user_email_rehash($pass, $mail) {
 }
 
 /**
- * Implementation of hook_exit().
+ * Implements hook_exit().
  */
 function email_confirm_exit() {
   if (isset($_SESSION['email_changed'])) {
