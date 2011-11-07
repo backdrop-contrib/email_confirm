@@ -159,7 +159,7 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
         drupal_goto('user/' . $user->uid . '/edit');
       }
       else {
-        drupal_goto('user/login', 'destination=user/' . $user->uid . '/edit');
+        drupal_goto('user/login', array('query' => array('destination' => 'user/' . $user->uid . '/edit')));
       }
     }
     elseif ($timestamp > $account->login && $timestamp < $current) {
@@ -180,7 +180,7 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
         drupal_goto('user/' . $user->uid . '/edit');
       }
       else {
-        drupal_goto('user/login', 'destination=user/' . $user->uid . '/edit');
+        drupal_goto('user/login', array('query' => array('destination' => 'user/' . $user->uid . '/edit')));
       }
     }
   }
