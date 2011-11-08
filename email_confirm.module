@@ -95,6 +95,35 @@ function email_confirm_admin_settings() {
 }
 
 /**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function email_confirm_form_email_confirm_admin_settings_alter(&$form, &$form_state) {
+  if (module_exists('token')) {
+
+    foreach (element_children($form) as $key) {
+      $element = &$form[$key];
+
+      switch ($key) {
+        case 'email_confirm_confirmation_email_body':
+        case 'email_confirm_confirmation_original_email_body':
+          $element['#description'] = trim(str_replace('The placeholders [user:name] and [site:name] will be replaced by the username and the site name.', t('The list of available tokens that can be used in e-mails is provided below.'), $element['#description']));
+          $element += array('#token_types' => array('user'));
+          break;
+      }
+    }
+
+    // Add the token tree UI.
+    $form['token_tree'] = array(
+      '#theme' => 'token_tree',
+      '#token_types' => array('user'),
+      '#show_restricted' => TRUE,
+      '#weight' => 90,
+    );
+    
+  }
+}
+
+/**
  * Admin settings validate
  */
 function email_confirm_admin_settings_validate($form, $form_state) {
@@ -423,4 +452,3 @@ function email_confirm_exit() {
     unset($_SESSION['email_changed']);
   }
 }
-
