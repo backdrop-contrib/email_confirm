@@ -135,7 +135,7 @@ function email_confirm_form_user_profile_form_alter(&$form, &$form_state, $form_
 
   if ($user->uid && isset($user->data['email_confirm'])) {
     if (isset($user->data['email_confirm']['pending_email']) && $user->data['email_confirm']['expiration_time'] > REQUEST_TIME) {
-      $pending_email_notice = t('You currently have a pending change of your email address to <strong>%email</strong>', array('%email' => $user->data['email_confirm']['pending_email'])) .'<br />';
+      $pending_email_notice = t('You currently have a pending change of your email address to <strong>%email</strong>', array('%email' => $user->data['email_confirm']['pending_email'])) . '<br />';
       $form['account']['mail']['#description'] = $pending_email_notice . $form['account']['mail']['#description'];
     }
   }
@@ -337,7 +337,7 @@ function email_confirm_mail_tokens(&$replacements, $data, $options) {
     $replacements['[email_confirm:email_url]'] = $data['email_confirm']->url;
   }
 }
-    
+
 /**
  * Generate a URL to confirm an email address change request.
  */
@@ -372,7 +372,7 @@ function email_confirm_exit() {
       }
       if (count($pruned_messages)) {
         foreach ($pruned_messages as $message) {
-          drupal_set_message($message, 'status');
+          drupal_set_message(filter_xss($message), 'status');
         }
       }
     }
