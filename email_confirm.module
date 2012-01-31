@@ -118,6 +118,9 @@ function email_confirm_user_presave(&$edit, $account, $category) {
     $edit['data']['email_confirm']['pending_email'] = $edit['mail'];
     $edit['data']['email_confirm']['expiration_time'] = (REQUEST_TIME + 86400);
     module_invoke_all('email_confirm', 'email change', $account->uid, $account->mail, $edit['mail']);
+    if (module_exists('rules')) {
+      rules_invoke_event('email_confirm_email_change_request', $account, $account->mail, $edit['mail']);
+    }
     unset($edit['mail']);
     unset($edit['email_confirmed']);
   }
@@ -190,6 +193,9 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
       watchdog('user', 'User %name used one-time e-mail change link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
       user_save($account, array('mail' => $new_mail, 'login' => REQUEST_TIME, 'email_confirmed' => TRUE));
       module_invoke_all('email_confirm', 'email confirmation', $account->uid, $account->mail, $new_mail);
+      if (module_exists('rules')) {
+        rules_invoke_event('email_confirm_email_change_confirmation', $account, $account->mail, $new_mail);
+      }
       drupal_set_message(t('Your e-mail address is now %mail.', array('%mail' => $new_mail)));
       if ($user->uid) {
         drupal_goto('user/' . $user->uid);
