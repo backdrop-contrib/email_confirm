@@ -107,6 +107,22 @@ function email_confirm_admin_settings_validate($form, $form_state) {
 }
 
 /**
+ * Implements hook_variable_info().
+ */
+function email_confirm_variable_info($options) {
+  dpm($options);
+  $type['email_confirm_confirmation_email_subject'] = array(
+    'type' => 'string',
+    'title' => t('Email address change request email subject', array(), $options),
+    'default' => email_confirm_mail_text('confirmation_email_subject', NULL, array(), FALSE),
+    'description' => t('The above text will be the subject for the email sent to a user that is attempting to update their email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name.', array(), $options),
+    'localize' => TRUE,
+  );
+
+  return $type;  
+}
+
+/**
  * Implements hook_user_presave().
  */
 function email_confirm_user_presave(&$edit, $account, $category) {
