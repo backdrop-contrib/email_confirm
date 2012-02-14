@@ -110,12 +110,27 @@ function email_confirm_admin_settings_validate($form, $form_state) {
  * Implements hook_variable_info().
  */
 function email_confirm_variable_info($options) {
-  dpm($options);
   $type['email_confirm_confirmation_email_subject'] = array(
     'type' => 'string',
     'title' => t('Email address change request email subject', array(), $options),
     'default' => email_confirm_mail_text('confirmation_email_subject', NULL, array(), FALSE),
     'description' => t('The above text will be the subject for the email sent to a user that is attempting to update their email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name.', array(), $options),
+    'localize' => TRUE,
+  );
+
+  $type['email_confirm_confirmation_email_body'] = array(
+    'type' => 'string',
+    'title' => t('Email address change request email body', array(), $options),
+    'default' => email_confirm_mail_text('confirmation_email_body', NULL, array(), FALSE),
+    'description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's new email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name.", array(), $options),
+    'localize' => TRUE,
+  );
+
+  $type['email_confirm_confirmation_original_email_body'] = array(
+    'type' => 'string',
+    'title' => t('Email address change request email body (Original)', array(), $options),
+    'default' => email_confirm_mail_text('confirmation_original_email_body', NULL, array(), FALSE),
+    'description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's original email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name.", array(), $options),
     'localize' => TRUE,
   );
 
@@ -301,7 +316,14 @@ function email_confirm_build_mail($edit) {
 function email_confirm_mail_text($key, $language = NULL, $variables = array(), $replace = TRUE) {
   $langcode = isset($language) ? $language->language : NULL;
 
-  if ($admin_setting = variable_get('email_confirm_' . $key, FALSE)) {
+  if (module_exists('i18n_variable') && $langcode) {
+    $admin_setting = i18n_variable_get('email_confirm_'. $key, $langcode);
+  }
+  else {
+    $admin_setting = variable_get('email_confirm_' . $key, FALSE);
+  }
+
+  if ($admin_setting) {
     // An admin setting overrides the default string.
     $text = $admin_setting;
   }
