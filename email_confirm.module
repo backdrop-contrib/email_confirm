@@ -119,7 +119,7 @@ function email_confirm_form_email_confirm_admin_settings_alter(&$form, &$form_st
       '#show_restricted' => TRUE,
       '#weight' => 90,
     );
-    
+
   }
 }
 
