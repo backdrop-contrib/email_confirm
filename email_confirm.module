@@ -317,7 +317,7 @@ function email_confirm_build_mail($edit, $account) {
   $params['context']['url'] = email_confirm_confirmation_email_url($edit, $account);
 
   if (module_exists('smtp') && variable_get('smtp_from', '') != '') {
-    $default_from = $smtp_from;
+    $default_from = variable_get('smtp_from', ini_get('sendmail_from'));
   }
   else {
     $default_from = variable_get('site_mail', ini_get('sendmail_from'));
