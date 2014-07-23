@@ -58,8 +58,8 @@ function email_confirm_admin_settings() {
   $form['email_confirm_confirmation_email_author'] = array(
     '#type' => 'textfield',
     '#title' => t('Email address change request email author'),
-    '#description' => t('The above address will be the \'From\' email address for the confirmation email for an email address change request. If no address is supplied the default site email address will be used.'),
-    '#default_value' => variable_get('email_confirm_confirmation_email_author', ''),
+    '#description' => t('The above address will be the \'From\' email address for the confirmation email for an email address change request. The default value is the site email address set on the <a href="@site-info">Site information</a> admin page. If using the SMTP Authentication Support module, check that module\'s configuration page for setting the default site email address.', array('@site-info' => url('admin/config/system/site-information'))),
+    '#default_value' => variable_get('email_confirm_confirmation_email_author', email_confirm_default_confirmation_email_author()),
     '#size' => 60,
   );
 
@@ -316,14 +316,16 @@ function email_confirm_build_mail($edit, $account) {
 
   $params['context']['url'] = email_confirm_confirmation_email_url($edit, $account);
 
-  if (module_exists('smtp') && variable_get('smtp_from', '') != '') {
-    $default_from = variable_get('smtp_from', ini_get('sendmail_from'));
-  }
-  else {
-    $default_from = variable_get('site_mail', ini_get('sendmail_from'));
+  $default_from = email_confirm_default_confirmation_email_author();
+  $from = variable_get('email_confirm_confirmation_email_author', $default_from);
+
+  // Make sure a from email was set into the variable. Otherwise, use the default.
+  // This accounts for case where the module variable was stored with an empty string.
+  // See https://www.drupal.org/node/2307949
+  if (empty($from)) {
+    $from = $default_form;
   }
 
-  $from = variable_get('email_confirm_confirmation_email_author', $default_from);
   $bcc = variable_get('email_confirm_confirmation_email_bcc', '');
 
   $params['headers'] = array();
@@ -335,6 +337,27 @@ function email_confirm_build_mail($edit, $account) {
     drupal_mail('email_confirm', 'confirmation_original_email', $account->mail, user_preferred_language($account), $params, $from);
     drupal_set_message(t('A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address.'));
   }
+}
+
+ /**
+  * Determines the default from email address.
+  *
+  * @return string
+  *   Default from email address.
+  */
+function email_confirm_default_confirmation_email_author() {
+  $default_from = &drupal_static(__FUNCTION__);
+
+  if (empty($default_from)) {
+    if (module_exists('smtp') && variable_get('smtp_from', '') != '') {
+      $default_from = variable_get('smtp_from', ini_get('sendmail_from'));
+    }
+    else {
+      $default_from = variable_get('site_mail', ini_get('sendmail_from'));
+    }
+  }
+
+  return $default_from;
 }
 
 /*
