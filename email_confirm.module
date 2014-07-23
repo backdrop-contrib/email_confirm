@@ -200,8 +200,8 @@ function email_confirm_form_user_profile_form_alter(&$form, &$form_state, $form_
   // in use, the user profile form may be on a subform.
   if ($user->uid && isset($user->data['email_confirm']) && isset($form['account'])) {
     if (isset($user->data['email_confirm']['pending_email']) && $user->data['email_confirm']['expiration_time'] > REQUEST_TIME) {
-      $pending_email_notice = t('You currently have a pending change of your email address to <strong>%email</strong>', array('%email' => $user->data['email_confirm']['pending_email'])) . '<br />';
-      $form['account']['mail']['#description'] = $pending_email_notice . $form['account']['mail']['#description'];
+      $pending_email_notice = t('<div class="messages warning">You currently have a pending change of your e-mail address to <strong>%email</strong>', array('%email' => $user->data['email_confirm']['pending_email'])) . '</div>';
+      $form['account']['mail']['#description'] = $form['account']['mail']['#description'] . $pending_email_notice;
     }
   }
 
