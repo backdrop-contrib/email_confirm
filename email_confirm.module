@@ -325,7 +325,7 @@ function email_confirm_build_mail($edit, $account) {
   // This accounts for case where the module variable was stored with an empty string.
   // See https://www.drupal.org/node/2307949
   if (empty($from)) {
-    $from = $default_form;
+    $from = $default_from;
   }
 
   $bcc = variable_get('email_confirm_confirmation_email_bcc', '');
