@@ -33,7 +33,7 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
   function setUp() {
     parent::setUp('email_confirm');
     $this->web_user = $this->drupalCreateUser();
-    $this->admin_user = $this->drupalCreateUser(array('administer site configuration', 'administer users'));
+    $this->admin_user = $this->drupalCreateUser(array('administer site configuration', 'administer users', 'bypass email confirmation'));
   }
 
   /**
