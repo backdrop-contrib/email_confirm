@@ -328,6 +328,8 @@ function email_confirm_mail($key, &$message, $params) {
 function email_confirm_build_mail($edit, $account) {
   $params = array();
   $params['account'] = $account;
+  $params['new_mail'] = $edit['mail'];
+  $params['old_mail'] = $account->mail;
 
   $params['context']['url'] = email_confirm_confirmation_email_url($edit, $account);
 
