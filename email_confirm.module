@@ -228,7 +228,7 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
   $current = REQUEST_TIME;
 
   // Some redundant checks for extra security ?
-  if ($timestamp < $current && $account) {
+  if ($timestamp <= $current && $account) {
     if (($current - $timestamp) > $timeout) {
       drupal_set_message(t('You have tried to use a one-time e-mail change link for %account that has expired--your change of e-mail request was not completed. Please visit your account edit page if you wish to attempt the change again.', array('%account' => $account->name)), 'error');
       if ($account->uid == $user->uid) {
@@ -251,7 +251,7 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
         drupal_goto('user/login', array('query' => array('destination' => 'user/' . $user->uid . '/edit')));
       }
     }
-    elseif ($timestamp > $account->login && $timestamp < $current) {
+    elseif ($timestamp >= $account->login && $timestamp <= $current) {
       watchdog('user', 'User %name used one-time e-mail change link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
       $old_mail = $account->mail;
       user_save($account, array('mail' => $new_mail, 'login' => REQUEST_TIME, 'email_confirmed' => TRUE));
@@ -440,7 +440,10 @@ function email_confirm_mail_tokens(&$replacements, $data, $options) {
  * Generate a URL to confirm an email address change request.
  */
 function email_confirm_confirmation_email_url($edit, $account) {
-  $timestamp = REQUEST_TIME;
+  // Use time() here instead of REQUEST_TIME as it allows tests to work, the
+  // performance impact is minimal, there's no benefit to avoiding time drift
+  // during a page request in this code.
+  $timestamp = time();
   $pass = isset($edit['pass']) ? md5($edit['pass']) : $account->pass;
   $hash = email_confirm_user_email_rehash($pass, $edit['mail']);
 

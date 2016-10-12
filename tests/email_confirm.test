@@ -1,0 +1,87 @@
+<?php
+
+/**
+ * @file
+ * Tests for Email Confirm module.
+ */
+
+class EmailConfirmTestCase extends DrupalWebTestCase {
+
+  /**
+   * A user able to change her email.
+   *
+   * @var object
+   */
+  protected $web_user;
+
+  /**
+   * A user with permission to skip email confirmation.
+   *
+   * @var object
+   */
+  protected $admin_user;
+
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Email Confirm',
+      'description' => 'Test email confirm module functionality.',
+      'group' => 'Email Confirm',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('email_confirm');
+    $this->web_user = $this->drupalCreateUser();
+    $this->admin_user = $this->drupalCreateUser(array('administer site configuration', 'administer users'));
+  }
+
+  /**
+   * Tests email change for non-admin user.
+   */
+  function testChangeEmail() {
+    $this->drupalLogin($this->web_user);
+
+    $new_mail = $this->randomName() . '@example.com';
+
+    $edit = array();
+    $edit['current_pass'] = $this->web_user->pass_raw;
+    $edit['mail'] = $new_mail;
+    $this->drupalPost("user/" . $this->web_user->uid . "/edit", $edit, t('Save'));
+    $this->assertText(t("A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address."));
+
+    $this->assertText(t("You currently have a pending change of your e-mail address to"));
+    $this->assertText($new_mail);
+
+    // Assert user's mail hasn't changed yet.
+    $account = user_load($this->web_user->uid);
+    $this->assertIdentical($account->mail, $this->web_user->mail);
+    $this->assertNotIdentical($account->mail, $new_mail);
+
+    // Follow change URL and confirm changed email.
+    $change_url = email_confirm_confirmation_email_url($edit, $this->web_user);
+    $this->drupalGet($change_url);
+    $this->assertText(t('Your e-mail address is now @mail.', array('@mail' => $new_mail)));
+  }
+
+  /**
+   * Tests admin changing email doesn't require email confirm.
+   */
+  function adminChangeEmail() {
+    $this->drupalLogin($this->admin_user);
+
+    $new_mail = $this->randomName() . '@example.com';
+
+    $edit = array();
+    $edit['mail'] = $new_mail;
+    $this->drupalPost("user/" . $this->web_user->uid . "/edit", $edit, t('Save'));
+    $this->assertNoText(t("A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address."));
+    $this->assertNoText($this->web_user->mail);
+    $this->assertText($new_mail);
+
+    // Assert user's mail was changed.
+    $account = user_load($this->web_user->uid);
+    $this->assertNotIdentical($account->mail, $this->web_user->mail);
+    $this->assertIdentical($account->mail, $new_mail);
+  }
+}
