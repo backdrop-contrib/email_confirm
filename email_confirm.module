@@ -233,12 +233,16 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
     return;
   }
 
+
   $account = user_load($uid);
   $new_mail = str_replace(' ', '+', $new_mail);
 
   // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
-  $timeout = 86400;
+  $timeout = variable_get('email_confirm_timeout', 86400);
   $current = REQUEST_TIME;
+
+  drupal_set_message("current is $current");
+  drupal_set_message("timeout is $timeout");
 
   // Some redundant checks for extra security ?
   if ($timestamp <= $current && $account) {
@@ -256,7 +260,7 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mai
       drupal_goto();
     }
     elseif ($hash != email_confirm_user_email_rehash($account->pass, $new_mail)) {
-      drupal_set_message(t('There was a problem verifying your change of e-mail request--please visit your account edit page and attempt the change again'), 'error');
+      drupal_set_message(t('There was a problem verifying your change of e-mail request--please visit your account edit page and attempt the change again.'), 'error');
       if ($user->uid) {
         drupal_goto('user/' . $user->uid . '/edit');
       }
