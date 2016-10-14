@@ -43,10 +43,19 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
   function testChangeEmail() {
     $this->drupalLogin($this->web_user);
 
-    $new_mail = $this->randomName() . '@example.com';
-
+    // Changes of letter case should not require email confirmation.
     $edit = array();
     $edit['current_pass'] = $this->web_user->pass_raw;
+    $edit['mail'] = $this->web_user->mail = drupal_strtoupper($this->web_user->mail);
+    $this->drupalPost("user/" . $this->web_user->uid . "/edit", $edit, t('Save'));
+    $this->assertNoText(t("A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address."));
+
+    // Assert user's mail has changed by case.
+    $account = user_load($this->web_user->uid);
+    $this->assertIdentical($account->mail, drupal_strtoupper($this->web_user->mail));
+
+    // Now actually change the email.
+    $new_mail = $this->randomName() . '@example.com';
     $edit['mail'] = $new_mail;
     $this->drupalPost("user/" . $this->web_user->uid . "/edit", $edit, t('Save'));
     $this->assertText(t("A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address."));
