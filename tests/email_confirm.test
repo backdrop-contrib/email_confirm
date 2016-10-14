@@ -89,9 +89,8 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
 
     // Get change URL.
     $change_url = email_confirm_confirmation_email_url($edit, $this->web_user);
-    $change_url_parts = parse_url($change_url);
     // Indices: 1 user. 2 change-mail. 3 uid. 4 timestamp. 5 hash.
-    $change_url_path_parts = explode('/', $change_url_parts['path']);
+    $change_url_path_parts = explode('/', parse_url($change_url, PHP_URL_PATH));
 
     // Confirm a variety of validations on the arguments/hash:
     // 1. missing all args.
@@ -136,8 +135,7 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     // 10. Invalid hash.
     // Regenerate a good change url for current login time.
     $change_url = email_confirm_confirmation_email_url($edit, $this->web_user);
-    $change_url_parts = parse_url($change_url);
-    $change_url_path_parts = explode('/', $change_url_parts['path']);
+    $change_url_path_parts = explode('/', parse_url($change_url, PHP_URL_PATH));
     $this->drupalGet(str_replace('/' . $change_url_path_parts[5], '/peanut', $change_url));
     $this->assertText('There was a problem with your one-time e-mail change link. Please attempt the change again.');
 
