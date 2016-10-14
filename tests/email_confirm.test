@@ -34,12 +34,32 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     parent::setUp('email_confirm');
     $this->web_user = $this->drupalCreateUser();
     $this->admin_user = $this->drupalCreateUser(array('administer site configuration', 'administer users', 'bypass email confirmation'));
+    variable_set('email_confirm_hash_salt', 'a6608c69aaaf51b3d1c74432e505a6cff0034bac5d654a8d54c6743add6b8579');
   }
 
   /**
-   * Tests email change for non-admin user.
+   * Tests basic email change success for non-admin user.
    */
   function testChangeEmail() {
+    $this->drupalLogin($this->web_user);
+
+    $new_mail = $this->randomName() . '@example.com';
+
+    $edit = array();
+    $edit['current_pass'] = $this->web_user->pass_raw;
+    $edit['mail'] = $new_mail;
+    $this->drupalPost("user/" . $this->web_user->uid . "/edit", $edit, t('Save'));
+    $this->assertText(t("A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address."));
+
+    $change_url = email_confirm_confirmation_email_url($edit, $this->web_user);
+    $this->drupalGet($change_url);
+    $this->assertText(t('Your e-mail address is now @mail.', array('@mail' => $new_mail)));
+  }
+
+  /**
+   * Tests email change failure cases for non-admin user.
+   */
+  function testChangeEmailVariations() {
     $this->drupalLogin($this->web_user);
 
     $new_mail = $this->randomName() . '@example.com';
@@ -61,7 +81,7 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     // Get change URL.
     $change_url = email_confirm_confirmation_email_url($edit, $this->web_user);
     $change_url_parts = parse_url($change_url);
-    // Indices: 1 user. 2 change-mail. 3 uid. 4 timestamp. 5 mail. 6 hash.
+    // Indices: 1 user. 2 change-mail. 3 uid. 4 timestamp. 5 hash.
     $change_url_path_parts = explode('/', $change_url_parts['path']);
 
     // Confirm a variety of validations on the arguments/hash:
@@ -72,7 +92,7 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     $this->drupalGet(str_replace('/' . $change_url_path_parts[3]  . '/',  '/peanut/', $change_url));
     $this->assertResponse(403, 'Non-numeric uid causes a 403.');
     // 3. Missing hash.
-    $this->drupalGet(str_replace('/' . $change_url_path_parts[6],  '/', $change_url));
+    $this->drupalGet(str_replace('/' . $change_url_path_parts[5],  '/', $change_url));
     $this->assertResponse(403, 'Missing hash causes a 403.');
     // 4. Timestamp > current.
     $this->drupalGet(str_replace('/' . $change_url_path_parts[4]  . '/',  '/' . time() + 3600 . '/', $change_url));
@@ -84,21 +104,21 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     sleep(2);
     variable_set('email_confirm_timeout', 1);
     $this->drupalGet($change_url);
-    $this->assertText(t('You have tried to use a one-time e-mail change link for @name that has expired--your change of e-mail request was not completed.', array('@name' => $this->web_user->name)));
+    $this->assertText(t('You have tried to use a one-time e-mail change link that has expired. Please attempt the change again.'));
     // Go back to default timeout.
     variable_del('email_confirm_timeout');
     // 7. Logged in as a different user.
     $this->drupalLogout();
     $this->drupalLogin($this->admin_user);
     $this->drupalGet($change_url);
-    $this->assertText(t('You are currently logged in as !user, and are attempting to confirm an e-mail change for !account, which is not allowed. Please log in as !account and initiate a new change of e-mail request.', array('!user' => $this->admin_user->name, '!account' => $this->web_user->name)));
+    $this->assertText(t('You must be logged in to the same account that requested this e-mail change to proceed.'));
     $this->drupalLogout();
     $this->drupalLogin($this->web_user);
 
     // 8. Timesetamp less than account login. Getting the url way up above and
     // the logout in previous assertion creates this condition.
     $this->drupalGet($change_url);
-    $this->assertText(t('You have tried to use a one-time e-mail change link which has either been used or has expired. Please request a new one.'));
+    $this->assertText(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'));
 
     // 9. Timestamp > current. Skipping for now as its hard to test.
     // This would be possible to test by making the timestamp an optional
@@ -107,10 +127,13 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     // 10. Invalid hash.
     // Regenerate a good change url for current login time.
     $change_url = email_confirm_confirmation_email_url($edit, $this->web_user);
-    $this->drupalGet(str_replace('/' . $change_url_path_parts[6],  '/peanut', $change_url));
-    $this->assertText('There was a problem verifying your change of e-mail request--please visit your account edit page and attempt the change again.');
+    $change_url_parts = parse_url($change_url);
+    $change_url_path_parts = explode('/', $change_url_parts['path']);
+    $this->drupalGet(str_replace('/' . $change_url_path_parts[5], '/peanut', $change_url));
+    $this->assertText('There was a problem with your one-time e-mail change link. Please attempt the change again.');
 
     // Confirm changed email with good url.
+    $change_url = email_confirm_confirmation_email_url($edit, $this->web_user);
     $this->drupalGet($change_url);
     $this->assertText(t('Your e-mail address is now @mail.', array('@mail' => $new_mail)));
   }

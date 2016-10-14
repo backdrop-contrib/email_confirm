@@ -224,80 +224,68 @@ function email_confirm_form_user_profile_form_alter(&$form, &$form_state, $form_
  * Menu callback; process one time email change confirm
  * and redirects to the user page on success.
  */
-function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $new_mail = NULL, $hash = NULL) {
+function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $hash = NULL) {
   global $user;
 
   // Check if all required parameters are present.
-  if (!isset($uid) || !is_numeric($uid) || !isset($timestamp) || !is_numeric($timestamp) || !isset($new_mail) || !isset($hash)) {
-    drupal_access_denied();
-    return;
-  }
-
-
-  $account = user_load($uid);
-  $new_mail = str_replace(' ', '+', $new_mail);
+  if (!isset($uid) || !is_numeric($uid) || !isset($timestamp) || !is_numeric($timestamp) || !isset($hash)) {
+    return MENU_ACCESS_DENIED;
+   }
 
   // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
   $timeout = variable_get('email_confirm_timeout', 86400);
   $current = REQUEST_TIME;
 
-  drupal_set_message("current is $current");
-  drupal_set_message("timeout is $timeout");
-
-  // Some redundant checks for extra security ?
-  if ($timestamp <= $current && $account) {
-    if (($current - $timestamp) > $timeout) {
-      drupal_set_message(t('You have tried to use a one-time e-mail change link for %account that has expired--your change of e-mail request was not completed. Please visit your account edit page if you wish to attempt the change again.', array('%account' => $account->name)), 'error');
-      if ($account->uid == $user->uid) {
-        drupal_goto('user/' . $account->uid . '/edit');
-      }
-      else {
-        drupal_goto();
-      }
-    }
-    elseif ($user->uid && $user->uid != $account->uid) {
-      drupal_set_message(t('You are currently logged in as %user, and are attempting to confirm an e-mail change for %account, which is not allowed. Please log in as %account and initiate a new change of e-mail request.', array('%user' => $user->name, '%account' => $account->name)), 'error');
-      drupal_goto();
-    }
-    elseif ($hash != email_confirm_user_email_rehash($account->pass, $new_mail)) {
-      drupal_set_message(t('There was a problem verifying your change of e-mail request--please visit your account edit page and attempt the change again.'), 'error');
-      if ($user->uid) {
-        drupal_goto('user/' . $user->uid . '/edit');
-      }
-      else {
-        drupal_goto('user/login', array('query' => array('destination' => 'user/' . $user->uid . '/edit')));
-      }
-    }
-    elseif ($timestamp >= $account->login && $timestamp <= $current) {
-      watchdog('user', 'User %name used one-time e-mail change link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
-      $old_mail = $account->mail;
-      user_save($account, array('mail' => $new_mail, 'login' => REQUEST_TIME, 'email_confirmed' => TRUE));
-      module_invoke_all('email_confirm', 'email confirmation', $account->uid, $old_mail, $new_mail);
-      if (module_exists('rules')) {
-        rules_invoke_event('email_confirm_email_change_confirmation', $account, $old_mail, $new_mail);
-      }
-      drupal_set_message(t('Your e-mail address is now %mail.', array('%mail' => $new_mail)));
-      if ($user->uid) {
-        drupal_goto('user/' . $user->uid);
-      }
-      else {
-        drupal_goto('user');
-      }
-    }
-    else {
-      drupal_set_message(t('You have tried to use a one-time e-mail change link which has either been used or has expired. Please request a new one.'), 'error');
-      if ($user->uid) {
-        drupal_goto('user/' . $user->uid . '/edit');
-      }
-      else {
-        drupal_goto('user/login', array('query' => array('destination' => 'user/' . $user->uid . '/edit')));
-      }
-    }
+  // Load pending email change address
+  if (isset($user->data['email_confirm']['pending_email']) && $user->data['email_confirm']['expiration_time'] > $current) {
+    $new_mail = $user->data['email_confirm']['pending_email'];
   }
   else {
-    // Deny access, no more clues.
-    // Everything will be in the watchdog's URL for the administrator to check.
-    drupal_access_denied();
+    // This will never validate against the hash, so check timestamp age before hash.
+    $new_mail = '';
+  }
+
+  // Ensure URL is for current user.
+  if (!$user->uid || $user->uid != $uid) {
+    drupal_set_message(t('You must be logged in to the same account that requested this e-mail change to proceed.'), 'error');
+    if (!$user->uid) {
+      drupal_goto('user/login');
+    }
+    else {
+      return MENU_ACCESS_DENIED;
+    }
+  }
+
+  // Check if timestamp provided is too old.
+  if (($current - $timestamp) > $timeout) {
+    drupal_set_message(t('You have tried to use a one-time e-mail change link that has expired. Please attempt the change again.'), 'error');
+    drupal_goto('user/' . $uid . '/edit');
+  }
+
+  // Ensure no new logins have occurred since the change was made.
+  $account = user_load($uid);
+  if ($timestamp < $account->login) {
+    drupal_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
+    drupal_goto('user/' . $uid . '/edit');
+  }
+
+  // Continue with email change if URL hash validates.
+  if ($hash === email_confirm_user_email_rehash($new_mail, $timestamp, $uid)) {
+    watchdog('user', 'User %name used one-time e-mail change link at time %timestamp.', array('%name' => $user->name, '%timestamp' => $timestamp));
+    $old_mail = $user->mail;
+    user_save($account, array('mail' => $new_mail, 'login' => REQUEST_TIME, 'email_confirmed' => TRUE));
+    module_invoke_all('email_confirm', 'email confirmation', $uid, $old_mail, $new_mail);
+    if (module_exists('rules')) {
+      rules_invoke_event('email_confirm_email_change_confirmation', $account, $old_mail, $new_mail);
+    }
+    drupal_set_message(t('Your e-mail address is now %mail.', array('%mail' => $new_mail)));
+    // We already validated this uid, so just redirect.
+    drupal_goto('user/' . $uid);
+  }
+  // Error if hash didn't validate (malformed, mismatch with stored pending email change, or already used).
+  else {
+    drupal_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
+    drupal_goto('user/' . $uid . '/edit');
   }
 }
 
@@ -463,17 +451,19 @@ function email_confirm_confirmation_email_url($edit, $account) {
   // performance impact is minimal, there's no benefit to avoiding time drift
   // during a page request in this code.
   $timestamp = time();
-  $pass = isset($edit['pass']) ? md5($edit['pass']) : $account->pass;
-  $hash = email_confirm_user_email_rehash($pass, $edit['mail']);
+  $hash = email_confirm_user_email_rehash($edit['mail'], $timestamp, $account->uid);
 
-  return url('user/change-mail/' . $account->uid . '/' . $timestamp . '/' . $edit['mail'] . '/' . $hash, array('absolute' => TRUE));
+  return url('user/change-mail/' . $account->uid . '/' . $timestamp . '/' . $hash, array('absolute' => TRUE));
 }
 
 /**
- * Generate an MD5 hash of user's passwords and pending changed email address.
+ * Generate a hash of URL paramaters and pending changed email address.
  */
-function email_confirm_user_email_rehash($pass, $mail) {
-  return md5($pass . $mail . drupal_get_private_key());
+function email_confirm_user_email_rehash($mail, $timestamp, $uid) {
+  // @see user_pass_rehash().
+  // The email_confirm_hash_salt supports automated testing.
+  // Not a one-time login link, so use 0 instead of last login.
+  return drupal_hmac_base64($timestamp . 0 . $uid, variable_get('email_confirm_hash_salt', drupal_get_hash_salt()) . $mail);
 }
 
 /**
