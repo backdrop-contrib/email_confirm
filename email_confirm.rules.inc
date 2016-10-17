@@ -7,6 +7,7 @@
 
 /**
  * Implements hook_rules_event_info().
+ *
  * @ingroup rules
  */
 function email_confirm_rules_event_info() {

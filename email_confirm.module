@@ -367,12 +367,12 @@ function email_confirm_build_mail($edit, $account) {
   }
 }
 
- /**
-  * Determines the default from email address.
-  *
-  * @return string
-  *   Default from email address.
-  */
+/**
+ * Determines the default from email address.
+ *
+ * @return string
+ *   Default from email address.
+ */
 function email_confirm_default_confirmation_email_author() {
   $default_from = &drupal_static(__FUNCTION__);
 
@@ -387,7 +387,6 @@ function email_confirm_default_confirmation_email_author() {
 
   return $default_from;
 }
-
 
 /**
  * Returns a mail string for a variable name.
@@ -496,7 +495,7 @@ function email_confirm_exit() {
     $pruned_messages = array();
     $status_messages = drupal_get_messages('status', TRUE);
     if (count($status_messages)) {
-      foreach ($status_messages['status'] as $i => $message) {
+      foreach ($status_messages['status'] as $message) {
         if (strcmp($message, t('The changes have been saved.')) != 0) {
           $pruned_messages[] = $message;
         }
