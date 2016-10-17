@@ -95,6 +95,8 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     // Indices: 1 user. 2 change-mail. 3 uid. 4 timestamp. 5 hash.
     $change_url_path_parts = explode('/', parse_url($change_url, PHP_URL_PATH));
 
+    $this->fail(json_encode($change_url_path_parts));
+
     // Confirm a variety of validations on the arguments/hash:
     // 1. missing all args.
     $this->drupalGet('user/change-mail/');
