@@ -1,7 +1,5 @@
 name = Email Confirm
 description = "Requires a user to verify changes to their email address"
 core = 7.x
-files[] = email_confirm.install
-files[] = email_confirm.module
 files[] = tests/email_confirm.test
 configure = admin/config/people/email_confirm

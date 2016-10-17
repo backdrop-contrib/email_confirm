@@ -33,7 +33,11 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
   function setUp() {
     parent::setUp('email_confirm');
     $this->web_user = $this->drupalCreateUser();
-    $this->admin_user = $this->drupalCreateUser(array('administer site configuration', 'administer users', 'bypass email confirmation'));
+    $this->admin_user = $this->drupalCreateUser(array(
+      'administer site configuration',
+      'administer users',
+      'bypass email confirmation',
+    ));
     variable_set('email_confirm_hash_salt', 'a6608c69aaaf51b3d1c74432e505a6cff0034bac5d654a8d54c6743add6b8579');
   }
 
@@ -96,18 +100,23 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     // 1. missing all args.
     $this->drupalGet('user/change-mail/');
     $this->assertResponse(403, 'Missing args causes a 403.');
+
     // 2. Non-numeric uid.
-    $this->drupalGet(str_replace('/' . $change_url_path_parts[3]  . '/',  '/peanut/', $change_url));
+    $this->drupalGet(str_replace('/' . $change_url_path_parts[3]  . '/', '/peanut/', $change_url));
     $this->assertResponse(403, 'Non-numeric uid causes a 403.');
+
     // 3. Missing hash.
-    $this->drupalGet(str_replace('/' . $change_url_path_parts[5],  '/', $change_url));
+    $this->drupalGet(str_replace('/' . $change_url_path_parts[5], '/', $change_url));
     $this->assertResponse(403, 'Missing hash causes a 403.');
+
     // 4. Timestamp > current.
-    $this->drupalGet(str_replace('/' . $change_url_path_parts[4]  . '/',  '/' . time() + 3600 . '/', $change_url));
+    $this->drupalGet(str_replace('/' . $change_url_path_parts[4]  . '/', '/' . time() + 3600 . '/', $change_url));
     $this->assertResponse(403, 'Timestamp less than current causes a 403.');
+
     // 5. Account not found (invalid uid).
     $this->drupalGet(str_replace('/' . $change_url_path_parts[3]  . '/', '/' . 42 . '/', $change_url));
     $this->assertResponse(403, 'Invalid uid/account causes a 403.');
+
     // 6. Passed timeout. Sleep 2 & set timeout to 1 so we can test it.
     sleep(2);
     variable_set('email_confirm_timeout', 1);
@@ -115,6 +124,7 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     $this->assertText(t('You have tried to use a one-time e-mail change link that has expired. Please attempt the change again.'));
     // Go back to default timeout.
     variable_del('email_confirm_timeout');
+
     // 7. Logged in as a different user.
     $this->drupalLogout();
     $this->drupalLogin($this->admin_user);
@@ -131,7 +141,6 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     // 9. Timestamp > current. Skipping for now as its hard to test.
     // This would be possible to test by making the timestamp an optional
     // argument to email_confirm_confirmation_email_url().
-
     // 10. Invalid hash.
     // Regenerate a good change url for current login time.
     $change_url = email_confirm_confirmation_email_url($edit, $this->web_user);
@@ -165,4 +174,5 @@ class EmailConfirmTestCase extends DrupalWebTestCase {
     $this->assertNotIdentical($account->mail, $this->web_user->mail);
     $this->assertIdentical($account->mail, $new_mail);
   }
+
 }
