@@ -253,13 +253,10 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $hash = 
   $timeout = variable_get('email_confirm_timeout', 86400);
   $current = REQUEST_TIME;
 
-  // Load pending email change address.
-  if (isset($user->data['email_confirm']['pending_email']) && $user->data['email_confirm']['expiration_time'] > $current) {
-    $new_mail = $user->data['email_confirm']['pending_email'];
-  }
-  else {
-    // Empty mail causes hash validation to fail. Validate other items first.
-    $new_mail = '';
+  // Timestamps in the future are invalid.
+  if ($timestamp > $current) {
+    drupal_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
+    drupal_goto('user/' . $uid . '/edit');
   }
 
   // Ensure URL is for current user.
@@ -271,6 +268,15 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $hash = 
     else {
       return MENU_ACCESS_DENIED;
     }
+  }
+
+  // Load pending email change address.
+  if (isset($user->data['email_confirm']['pending_email']) && $user->data['email_confirm']['expiration_time'] > $current) {
+    $new_mail = $user->data['email_confirm']['pending_email'];
+  }
+  else {
+    drupal_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
+    drupal_goto('user/' . $uid . '/edit');
   }
 
   // Check if timestamp provided is too old.
@@ -343,7 +349,9 @@ function email_confirm_build_mail($edit, $account) {
   $params['new_mail'] = $edit['mail'];
   $params['old_mail'] = $account->mail;
 
-  $params['context']['url'] = email_confirm_confirmation_email_url($edit, $account);
+  $params['context']['url'] = url(email_confirm_confirmation_email_url_path($edit['mail'], $account->uid), array(
+    'absolute' => TRUE,
+  ));
 
   $default_from = email_confirm_default_confirmation_email_author();
   $from = variable_get('email_confirm_confirmation_email_author', $default_from);
@@ -465,16 +473,25 @@ function email_confirm_mail_tokens(&$replacements, $data, $options) {
 }
 
 /**
- * Generate a URL to confirm an email address change request.
+ * Generate the path part of a URL to confirm an email address change request.
+ *
+ * @param string $mail
+ *   The new email address.
+ * @param int $uid
+ *   The uid of the account changing their email.
+ * @param int $timestamp
+ *   Unix timestamp (e.g. from time()).
+ * @return string
+ *   Path to wrap in `url($return, ['absolute' => TRUE])` to get a full url.
  */
-function email_confirm_confirmation_email_url($edit, $account) {
+function email_confirm_confirmation_email_url_path($mail, $uid, $timestamp = NULL) {
   // Use time() here instead of REQUEST_TIME as it allows tests to work, the
   // performance impact is minimal, there's no benefit to avoiding time drift
   // during a page request in this code.
-  $timestamp = time();
-  $hash = email_confirm_user_email_rehash($edit['mail'], $timestamp, $account->uid);
+  $timestamp = !empty($timestamp) ? $timestamp : time();
+  $hash = email_confirm_user_email_rehash($mail, $timestamp, $uid);
 
-  return url('user/change-mail/' . $account->uid . '/' . $timestamp . '/' . $hash, array('absolute' => TRUE));
+  return 'user/change-mail/' . $uid . '/' . $timestamp . '/' . $hash;
 }
 
 /**
