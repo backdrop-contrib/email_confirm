@@ -6,22 +6,6 @@
  */
 
 /**
- * Implements hook_help().
- */
-function email_confirm_help($path, $arg) {
-  switch ($path) {
-    case 'admin/modules#description':
-      return t('Configuration of confirmation email sent to users who attempt to change their email address.');
-
-    case 'admin/help#email_confirm':
-      return t('<p>The Email Change Confirmation module addresses missing functionality in the core distribution of Drupal. With this module enabled, a user who attempts to change the email address associated with their account must confirm that change by clicking a confirmation link that is sent to the new email address. The confirmation link must be clicked with a certain time period after which the pending update to their email address will expire and they will have to attempt to update their account again. This module was based on code from <a href="!url">this issue</a></p>', array('!url' => 'http://drupal.org/node/85494'));
-
-    case 'admin/config/people/email_confirm':
-      return t("When the Email Change Confirmation module is enabled, users who attempt to update their email address will be required to confirm their changes by clicking a confirmation link in an email sent to the new email address. The settings below determine the subject and body of the confirmation email sent to the user. A copy is sent to both the user's original email address and the new address.");
-  }
-}
-
-/**
  * Implements hook_menu().
  */
 function email_confirm_menu() {
@@ -36,7 +20,7 @@ function email_confirm_menu() {
   $items['admin/config/people/email_confirm'] = array(
     'title' => 'Email change confirmation settings',
     'description' => 'Configuration of confirmation email sent to users who attempt to change their email address.',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrop_get_form',
     'page arguments' => array('email_confirm_admin_settings'),
     'access callback' => 'user_access',
     'access arguments' => array('administer site configuration'),
@@ -60,10 +44,24 @@ function email_confirm_permission() {
 }
 
 /**
+ * Implements hook_config_info().
+ */
+function email_confirm_config_info() {
+  $prefixes['email_confirm.settings'] = array(
+    'label' => t('Email Confirm settings'),
+    'group' => t('Configuration'),
+  );
+  return $prefixes;
+}
+
+/**
  * Implements hook_settings().
  */
 function email_confirm_admin_settings() {
   $form = array();
+  $config = config('email_confirm.settings');
+
+  $form['#config'] = 'email_confirm.settings';
 
   $form['email_confirm_confirmation_email_subject'] = array(
     '#type' => 'textfield',
@@ -75,11 +73,13 @@ function email_confirm_admin_settings() {
     '#required' => TRUE,
   );
 
+  $email_author = $config->get('email_confirm_confirmation_email_author');
+  $email_author = !empty($email_author) ? $email_author : email_confirm_default_confirmation_email_author();
   $form['email_confirm_confirmation_email_author'] = array(
     '#type' => 'textfield',
     '#title' => t('Email address change request email author'),
     '#description' => t('The above address will be the \'From\' email address for the confirmation email for an email address change request. The default value is the site email address set on the <a href="@site-info">Site information</a> admin page. If using the SMTP Authentication Support module, check that module\'s configuration page for setting the default site email address.', array('@site-info' => url('admin/config/system/site-information'))),
-    '#default_value' => variable_get('email_confirm_confirmation_email_author', email_confirm_default_confirmation_email_author()),
+    '#default_value' => $email_author,
     '#size' => 60,
   );
 
@@ -87,7 +87,7 @@ function email_confirm_admin_settings() {
     '#type' => 'textfield',
     '#title' => t('Email address change request email BCC email address'),
     '#description' => t('The above address will receive a BCC email copy of the confirmation email for an email address change request.'),
-    '#default_value' => variable_get('email_confirm_confirmation_email_bcc', ''),
+    '#default_value' => $config->get('email_confirm_confirmation_email_bcc'),
     '#size' => 60,
   );
 
@@ -118,29 +118,25 @@ function email_confirm_admin_settings() {
  * Implements hook_form_FORM_ID_alter().
  */
 function email_confirm_form_email_confirm_admin_settings_alter(&$form, &$form_state) {
-  if (module_exists('token')) {
+  foreach (element_children($form) as $key) {
+    $element = &$form[$key];
 
-    foreach (element_children($form) as $key) {
-      $element = &$form[$key];
-
-      switch ($key) {
-        case 'email_confirm_confirmation_email_body':
-        case 'email_confirm_confirmation_original_email_body':
-          $element['#description'] = trim(str_replace('The placeholders [user:name] and [site:name] will be replaced by the username and the site name.', t('The list of available tokens that can be used in e-mails is provided below.'), $element['#description']));
-          $element += array('#token_types' => array('user'));
-          break;
-      }
+    switch ($key) {
+      case 'email_confirm_confirmation_email_body':
+      case 'email_confirm_confirmation_original_email_body':
+        $element['#description'] = trim(str_replace('The placeholders [user:name] and [site:name] will be replaced by the username and the site name.', t('The list of available tokens that can be used in e-mails is provided below.'), $element['#description']));
+        $element += array('#token_types' => array('user'));
+        break;
     }
-
-    // Add the token tree UI.
-    $form['token_tree'] = array(
-      '#theme' => 'token_tree',
-      '#token_types' => array('user'),
-      '#show_restricted' => TRUE,
-      '#weight' => 90,
-    );
-
   }
+
+  // Add the token tree UI.
+  $form['token_tree'] = array(
+    '#theme' => 'token_tree',
+    '#token_types' => array('user'),
+    '#show_restricted' => TRUE,
+    '#weight' => 90,
+  );
 }
 
 /**
@@ -156,43 +152,12 @@ function email_confirm_admin_settings_validate($form, $form_state) {
 }
 
 /**
- * Implements hook_variable_info().
- */
-function email_confirm_variable_info($options) {
-  $type['email_confirm_confirmation_email_subject'] = array(
-    'type' => 'string',
-    'title' => t('Email address change request email subject', array(), $options),
-    'default' => email_confirm_mail_text('confirmation_email_subject', NULL, array(), FALSE),
-    'description' => t('The above text will be the subject for the email sent to a user that is attempting to update their email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name.', array(), $options),
-    'localize' => TRUE,
-  );
-
-  $type['email_confirm_confirmation_email_body'] = array(
-    'type' => 'string',
-    'title' => t('Email address change request email body', array(), $options),
-    'default' => email_confirm_mail_text('confirmation_email_body', NULL, array(), FALSE),
-    'description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's new email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name.", array(), $options),
-    'localize' => TRUE,
-  );
-
-  $type['email_confirm_confirmation_original_email_body'] = array(
-    'type' => 'string',
-    'title' => t('Email address change request email body (Original)', array(), $options),
-    'default' => email_confirm_mail_text('confirmation_original_email_body', NULL, array(), FALSE),
-    'description' => t("The above text will be the body for the email sent to a user that is attempting to update their email address. The text here will be sent to the user's original email address. The placeholders [user:name] and [site:name] will be replaced by the username and the site name.", array(), $options),
-    'localize' => TRUE,
-  );
-
-  return $type;
-}
-
-/**
  * Implements hook_user_presave().
  */
 function email_confirm_user_presave(&$edit, $account, $category) {
-  if (!empty($edit['mail']) && (!empty($account->mail) && drupal_strtolower($account->mail) != drupal_strtolower($edit['mail'])) && !user_access('bypass email confirmation') && !drupal_installation_attempted() && (!isset($edit['email_confirmed']) || $edit['email_confirmed'] === FALSE)) {
+  if (!empty($edit['mail']) && (!empty($account->mail) && backdrop_strtolower($account->mail) != backdrop_strtolower($edit['mail'])) && !user_access('bypass email confirmation') && !backdrop_installation_attempted() && (!isset($edit['email_confirmed']) || $edit['email_confirmed'] === FALSE)) {
     // Set a temporary session variable to indicate that the email was
-    // changed. Is used in hook_exit to clear out a Drupal message set
+    // changed. Is used in hook_exit to clear out a Backdrop message set
     // by the user module after user_save() is called.
     $_SESSION['email_changed'] = TRUE;
     email_confirm_build_mail($edit, $account);
@@ -250,20 +215,20 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $hash = 
   }
 
   // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
-  $timeout = variable_get('email_confirm_timeout', 86400);
+  $timeout = config_get('email_confirm.settings', 'email_confirm_timeout');
   $current = REQUEST_TIME;
 
   // Timestamps in the future are invalid.
   if ($timestamp > $current) {
-    drupal_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
-    drupal_goto('user/' . $uid . '/edit');
+    backdrop_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
+    backdrop_goto('user/' . $uid . '/edit');
   }
 
   // Ensure URL is for current user.
   if (!$user->uid || $user->uid != $uid) {
-    drupal_set_message(t('You must be logged in to the same account that requested this e-mail change to proceed.'), 'error');
+    backdrop_set_message(t('You must be logged in to the same account that requested this e-mail change to proceed.'), 'error');
     if (!$user->uid) {
-      drupal_goto('user/login');
+      backdrop_goto('user/login');
     }
     else {
       return MENU_ACCESS_DENIED;
@@ -275,21 +240,21 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $hash = 
     $new_mail = $user->data['email_confirm']['pending_email'];
   }
   else {
-    drupal_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
-    drupal_goto('user/' . $uid . '/edit');
+    backdrop_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
+    backdrop_goto('user/' . $uid . '/edit');
   }
 
   // Check if timestamp provided is too old.
   if (($current - $timestamp) > $timeout) {
-    drupal_set_message(t('You have tried to use a one-time e-mail change link that has expired. Please attempt the change again.'), 'error');
-    drupal_goto('user/' . $uid . '/edit');
+    backdrop_set_message(t('You have tried to use a one-time e-mail change link that has expired. Please attempt the change again.'), 'error');
+    backdrop_goto('user/' . $uid . '/edit');
   }
 
   // Ensure no new logins have occurred since the change was made.
   $account = user_load($uid);
   if ($timestamp < $account->login) {
-    drupal_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
-    drupal_goto('user/' . $uid . '/edit');
+    backdrop_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
+    backdrop_goto('user/' . $uid . '/edit');
   }
 
   // Continue with email change if URL hash validates.
@@ -305,14 +270,14 @@ function email_confirm_user_change_mail($uid = NULL, $timestamp = NULL, $hash = 
     if (module_exists('rules')) {
       rules_invoke_event('email_confirm_email_change_confirmation', $account, $old_mail, $new_mail);
     }
-    drupal_set_message(t('Your e-mail address is now %mail.', array('%mail' => $new_mail)));
+    backdrop_set_message(t('Your e-mail address is now %mail.', array('%mail' => $new_mail)));
     // We already validated this uid, so just redirect.
-    drupal_goto('user/' . $uid);
+    backdrop_goto('user/' . $uid);
   }
   // If hash didn't validate, error out.
   else {
-    drupal_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
-    drupal_goto('user/' . $uid . '/edit');
+    backdrop_set_message(t('There was a problem with your one-time e-mail change link. Please attempt the change again.'), 'error');
+    backdrop_goto('user/' . $uid . '/edit');
   }
 }
 
@@ -369,9 +334,9 @@ function email_confirm_build_mail($edit, $account) {
     $params['headers']['Bcc'] = $bcc;
   }
 
-  if ($message['result'] = drupal_mail('email_confirm', 'confirmation_email', $edit['mail'], user_preferred_language($account), $params, $from)) {
-    drupal_mail('email_confirm', 'confirmation_original_email', $account->mail, user_preferred_language($account), $params, $from);
-    drupal_set_message(t('A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address.'));
+  if ($message['result'] = backdrop_mail('email_confirm', 'confirmation_email', $edit['mail'], user_preferred_language($account), $params, $from)) {
+    backdrop_mail('email_confirm', 'confirmation_original_email', $account->mail, user_preferred_language($account), $params, $from);
+    backdrop_set_message(t('A confirmation email has been sent to your new email address. You must follow the link provided in that email within 24 hours in order to confirm the change to your account email address.'));
   }
 }
 
@@ -382,7 +347,7 @@ function email_confirm_build_mail($edit, $account) {
  *   Default from email address.
  */
 function email_confirm_default_confirmation_email_author() {
-  $default_from = &drupal_static(__FUNCTION__);
+  $default_from = &backdrop_static(__FUNCTION__);
 
   if (empty($default_from)) {
     if (module_exists('smtp') && variable_get('smtp_from', '') != '') {
@@ -406,7 +371,8 @@ function email_confirm_mail_text($key, $language = NULL, $variables = array(), $
     $admin_setting = i18n_variable_get('email_confirm_' . $key, $langcode);
   }
   else {
-    $admin_setting = variable_get('email_confirm_' . $key, FALSE);
+    $admin_setting = config_get('email_confirm.settings', 'email_confirm_' . $key);
+    $admin_setting = !empty($admin_setting) ? $admin_setting : FALSE;
   }
 
   if ($admin_setting) {
@@ -501,7 +467,9 @@ function email_confirm_user_email_rehash($mail, $timestamp, $uid) {
   // @see user_pass_rehash().
   // The email_confirm_hash_salt supports automated testing.
   // Not a one-time login link, so use 0 instead of last login.
-  return drupal_hmac_base64($timestamp . 0 . $uid, variable_get('email_confirm_hash_salt', drupal_get_hash_salt()) . $mail);
+  $hash_salt = confirm_get('email_confirm.settings', 'email_confirm_hash_salt');
+  $hash_salt = !empty($hash_salt) ? $hash_salt : backdrop_get_hash_salt();
+  return backdrop_hmac_base64($timestamp . 0 . $uid, $hash_salt . $mail);
 }
 
 /**
@@ -510,7 +478,7 @@ function email_confirm_user_email_rehash($mail, $timestamp, $uid) {
 function email_confirm_exit() {
   if (isset($_SESSION['email_changed'])) {
     $pruned_messages = array();
-    $status_messages = drupal_get_messages('status', TRUE);
+    $status_messages = backdrop_get_messages('status', TRUE);
     if (count($status_messages)) {
       foreach ($status_messages['status'] as $message) {
         if (strcmp($message, t('The changes have been saved.')) != 0) {
@@ -519,7 +487,7 @@ function email_confirm_exit() {
       }
       if (count($pruned_messages)) {
         foreach ($pruned_messages as $message) {
-          drupal_set_message(filter_xss($message), 'status');
+          backdrop_set_message(filter_xss($message), 'status');
         }
       }
     }

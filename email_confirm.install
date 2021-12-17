@@ -6,39 +6,32 @@
  */
 
 /**
- * Updates email confirmation text to use new token patterns.
+ * Implements hook_update_last_removed().
  */
-function email_confirm_update_7000() {
-  $map = array(
-    '!username' => '[user:name]',
-    '!site' => '[site:name]',
-    '!email_url' => '[email_confirm:email_url]',
-  );
-
-  $variables = array(
-    'email_confirm_confirmation_email_subject',
-    'email_confirm_confirmation_email_body',
-    'email_confirm_confirmation_original_email_body',
-  );
-
-  foreach ($variables as $variable) {
-    $var = variable_get($variable, '');
-    if (drupal_strlen($var)) {
-      $new_var = str_replace(array_keys($map), array_values($map), $var);
-      variable_set($variable, $new_var);
-    }
-  }
+function email_confirm_update_last_removed() {
+  return 7000;
 }
 
 /**
- * Implements hook_uninstall().
+ * Move email_confirm settings from variables to config.
  */
-function email_confirm_uninstall() {
-  variable_del('email_confirm_confirmation_email_subject');
-  variable_del('email_confirm_confirmation_email_author');
-  variable_del('email_confirm_confirmation_email_bcc');
-  variable_del('email_confirm_confirmation_email_body');
-  variable_del('email_confirm_confirmation_original_email_body');
-  variable_del('email_confirm_hash_salt');
-  variable_del('email_confirm_timeout');
+function email_confirm_update_1000() {
+  // Migrate variables to config.
+  $config = config('email_confirm.settings');
+  $config->set('email_confirm_confirmation_email_subject', update_variable_get('email_confirm_confirmation_email_subject', ''));
+  $config->set('email_confirm_confirmation_email_author', update_variable_get('email_confirm_confirmation_email_author', ''));
+  $config->set('email_confirm_confirmation_email_bcc', update_variable_get('email_confirm_confirmation_email_bcc', ''));
+  $config->set('email_confirm_confirmation_email_body', update_variable_get('email_confirm_confirmation_email_body', ''));
+  $config->set('email_confirm_confirmation_original_email_body', update_variable_get('email_confirm_confirmation_original_email_body', ''));
+  $config->set('email_confirm_hash_salt', update_variable_get('email_confirm_hash_salt', ''));
+  $config->set('email_confirm_timeout', update_variable_get('email_confirm_timeout', ''));
+  $config->save();
+
+  update_variable_del('email_confirm_confirmation_email_subject');
+  update_variable_del('email_confirm_confirmation_email_author');
+  update_variable_del('email_confirm_confirmation_email_bcc');
+  update_variable_del('email_confirm_confirmation_email_body');
+  update_variable_del('email_confirm_confirmation_original_email_body');
+  update_variable_del('email_confirm_hash_salt');
+  update_variable_del('email_confirm_timeout');
 }

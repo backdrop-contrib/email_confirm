@@ -1,5 +1,5 @@
 name = Email Confirm
 description = "Requires a user to verify changes to their email address"
-core = 7.x
-files[] = tests/email_confirm.test
+backdrop = 1.x
+type = module
 configure = admin/config/people/email_confirm

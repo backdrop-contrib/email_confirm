@@ -1,0 +1,5 @@
+[EmailConfirmTestCase]
+name = Email Confirm
+description = Test email confirm module functionality.
+group = Email Confirm
+file = email_confirm.test

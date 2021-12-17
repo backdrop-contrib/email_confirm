@@ -1,0 +1,10 @@
+{
+  "_config_name": "email_confirm.settings",
+  "email_confirm_confirmation_email_subject": "",
+  "email_confirm_confirmation_email_author": "",
+  "email_confirm_confirmation_email_bcc": "",
+  "email_confirm_confirmation_email_body": "",
+  "email_confirm_confirmation_original_email_body": "",
+  "email_confirm_hash_salt": "",
+  "email_confirm_timeout": "86400"
+}
