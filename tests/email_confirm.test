@@ -29,7 +29,7 @@ class EmailConfirmTestCase extends BackdropWebTestCase {
       'administer users',
       'bypass email confirmation',
     ));
-    config_set('email_confirm.settings', 'email_confirm_hash_salt', 'a6608c69aaaf51b3d1c74432e505a6cff0034bac5d654a8d54c6743add6b8579');
+    config_set('email_confirm.settings', 'hash_salt', 'a6608c69aaaf51b3d1c74432e505a6cff0034bac5d654a8d54c6743add6b8579');
   }
 
   /**
@@ -110,11 +110,11 @@ class EmailConfirmTestCase extends BackdropWebTestCase {
 
     // 6. Passed timeout. Sleep 2 & set timeout to 1 so we can test it.
     sleep(2);
-    config_set('email_confirm.settings', 'email_confirm_timeout', 1);
+    config_set('email_confirm.settings', 'timeout', 1);
     $this->backdropGet($change_url_path);
     $this->assertText(t('You have tried to use a one-time e-mail change link that has expired. Please attempt the change again.'));
     // Go back to default timeout.
-    config_clear('email_confirm.settings', 'email_confirm_timeout');
+    config_clear('email_confirm.settings', 'timeout');
 
     // 7. Logged in as a different user.
     $this->backdropLogout();
