@@ -35,3 +35,14 @@ function email_confirm_update_1000() {
   update_variable_del('email_confirm_hash_salt');
   update_variable_del('email_confirm_timeout');
 }
+
+/**
+ * Set email subject and body in config.
+ */
+function email_confirm_update_1001() {
+  $config = config('email_confirm.settings');
+  $config->set('email_confirm_confirmation_email_subject', "Email address change request for [user:name] at [site:name]");
+  $config->set('email_confirm_confirmation_email_body', "Hello [user:name],\n\nA request to change your email address has been made at [site:name].\n\nYou need to verify the change by clicking on the link below or bycopying and pasting it in your browser: [email_confirm:email_url].\n\nThis is a one-time URL - it can be used only once. It expires after 24 hours. If you do not click the link to confirm, your email address at [site:name] will not be updated.");
+  $config->set('email_confirm_confirmation_original_email_body', "Hello [user:name],\n\nA request to change your email address has been made at [site:name].\n\nIn order to confirm the update of your email address you will need to follow the instructions sent to your new email address within 24 hours.");
+  $config->save();
+}

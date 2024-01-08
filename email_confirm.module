@@ -368,51 +368,7 @@ function email_confirm_default_confirmation_email_author() {
 function email_confirm_mail_text($key, $language = NULL, $variables = array(), $replace = TRUE) {
   $langcode = isset($language) ? $language->langcode : NULL;
 
-  if (module_exists('i18n_variable') && $langcode) {
-    $admin_setting = i18n_variable_get('email_confirm_' . $key, $langcode);
-  }
-  else {
-    $admin_setting = config_get('email_confirm.settings', 'email_confirm_' . $key);
-    $admin_setting = !empty($admin_setting) ? $admin_setting : FALSE;
-  }
-
-  if ($admin_setting) {
-    // An admin setting overrides the default string.
-    $text = $admin_setting;
-  }
-  else {
-    // No override, return default string.
-    switch ($key) {
-      case 'confirmation_email_subject':
-        $text = t('Email address change request for [user:name] at [site:name]', array(), array('langcode' => $langcode));
-        break;
-
-      case 'confirmation_email_body':
-        $text = t("Hello [user:name],
-
-A request to change your email address has been made at [site:name].
-You need to verify the change by clicking on the link below or by
-copying and pasting it in your browser:
-
-[email_confirm:email_url]
-
-This is a one-time URL - it can be used only once. It expires after
-24 hours. If you do not click the link to confirm, your email address
-at [site:name] will not be updated.
-", array(), array('langcode' => $langcode));
-        break;
-
-      case 'confirmation_original_email_body':
-        $text = t("Hello [user:name],
-
-A request to change your email address has been made at [site:name].
-In order to confirm the update of your email address you will
-need to follow the instructions sent to your new email address
-within 24 hours.
-", array(), array('langcode' => $langcode));
-        break;
-    }
-  }
+  $text = config('email_confirm.settings')->getTranslated('email_confirm_' . $key, array(), array('langcode' => $langcode));
 
   if ($replace) {
     // We do not sanitize the token replacement, since the output of this
@@ -421,6 +377,7 @@ within 24 hours.
       'language' => $language,
       'callback' => 'email_confirm_mail_tokens',
       'sanitize' => FALSE,
+      'clear' => TRUE,
     ));
   }
 
